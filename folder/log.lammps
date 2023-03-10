@@ -1,0 +1,224 @@
+LAMMPS (23 Jun 2022)
+########################################################################
+#### 3D droplet oscilation using many-body DPD simulation            ###
+####                                                                 ###
+#### Created  : David Chen (r11521614@ntu.edu.tw)                    ###
+####            CAE-Chen's Group, Civil Engineering, NTU.            ###
+####                                                                 ###
+#### mDPD parameters follow the choice of the publication:           ###
+#### Z. Li et al. "Three dimensional flow structures in a moving     ###
+#### droplet on substrate: a dissipative particle dynamics study"    ###
+#### Physics of Fluids, 2013, 25: 072103. DOI: 10.1063/1.4812366     ###
+########################################################################
+
+# echo both
+
+########################################################################
+#### Initialization
+########################################################################
+units               lj
+dimension           3
+boundary            p p p
+neighbor            0.3 bin
+neigh_modify        every 2 delay 10 check yes
+comm_modify vel yes #需要這條命令來使得ghost原子存儲速度信息 ##問題 https://docs.lammps.org/pair_dpd.html
+
+atom_style          mdpd
+
+#######################################################################
+#### System Def.
+########################################################################
+region     mdpd     block -100 500 -20 50 -15 50      units box
+create_box          2 mdpd
+Created orthogonal box = (-100 -20 -15) to (500 50 50)
+  1 by 1 by 1 MPI processor grid
+
+
+lattice             fcc 6
+Lattice spacing in x,y,z = 0.87358046 0.87358046 0.87358046
+region     fluid    sphere 0 15 17.5 20 side in    units box
+# create_atoms        1 random 25396 9872598 fluid
+create_atoms        1 region fluid
+Created 201128 atoms
+  using lattice units in orthogonal box = (-100 -20 -15) to (500 50 50)
+  create_atoms CPU = 0.016 seconds
+group               free        region fluid
+201128 atoms in group free
+set                 group       free        type 1
+Setting atom values ...
+  201128 settings made for type
+
+
+# ### 三角形條紋底版
+# lattice             sc 12
+# region     solid    block -50 50.436802 -10 -5 -15 50   units box
+# create_atoms        2 region solid
+# group               wall_fix    region solid
+# set                 group       wall_fix    type 2
+
+
+### 1D Sin() Rough Surface
+variable        	xx internal 0.0
+variable        	yy internal 0.0
+variable            zz internal 0.0
+variable        	v equal "v_yy < (1 * sin(v_xx * 5.0*PI/2)*sin(v_zz * 5.0*PI/2) -6 ) "
+
+lattice         	fcc 3.61
+Lattice spacing in x,y,z = 1.0347869 1.0347869 1.0347869
+region     solid    block -100 500 -13 -5 -15 50   units box
+create_atoms    	2 region solid var v set x xx set y yy set z zz
+Created 1008422 atoms
+  using lattice units in orthogonal box = (-100 -20 -15) to (500 50 50)
+  create_atoms CPU = 5.177 seconds
+group               wall_fix    region solid
+1008422 atoms in group wall_fix
+set                 group       wall_fix    type 2
+Setting atom values ...
+  1008422 settings made for type
+
+write_dump      	all atom all.xyz
+WARNING: Calling write_dump before a full system init. (src/write_dump.cpp:68)
+
+###################设置疏水条带角度##############
+# variable theta equal 30
+# variable theta1 equal ${theta}/180*3.1415926
+# variable x1 equal -30+7.5/sin(${theta1})
+# variable x2 equal -30-7.5/sin(${theta1})
+# variable d1 equal 1/tan(${theta1})
+# variable d2 equal -1/tan(${theta1})
+# region     p1     plane ${x1} 0 0 -1 0 ${d1} units box side in
+# region     p2     plane ${x2} 0 0 1 0 ${d2} units box side in
+# region     p3     plane 0 -5 0.0 0 -1 0 units box side in
+# region     p      intersect 3 p1 p2 p3
+
+# group phi region p
+# set group phi type 3
+
+####################定义壁面非对称三角波沟槽##################
+
+# label loopa
+# variable i loop 50
+#        variable px equal ($i-1)*2.183000-50
+#        region     del1a     plane ${px} -6.9 0.0 1 0 0 units box side in
+#        region     del2a     plane ${px} -6.9 0.0 -1 1 0 units box side in
+#        region     del3a     plane 0 -4 0.0 0 -1 0 units box side in
+#        region     dela      intersect 3 del1a del2a del3a
+#        delete_atoms region dela
+#        region     del1a delete
+#        region     del2a delete
+#        region     del3a delete
+#        region     dela  delete
+# next i
+# jump in.droplet loopa
+
+########################################################################
+#### potential energy
+########################################################################
+pair_style          hybrid/overlay mdpd/rhosum mdpd 1.0 1.0 9872598
+pair_coeff          1 1 mdpd/rhosum  0.75
+pair_coeff          1 2 mdpd/rhosum  0.75
+pair_coeff          2 2 mdpd/rhosum  0.75
+pair_coeff          1 1 mdpd         -40 25 27.15 1.0 0.75 # 參考 2012 paper中 Coefficient for dissipative force參數
+pair_coeff          1 2 mdpd         -30 25 18.0 1.0 0.75
+pair_coeff          2 2 mdpd         -40 25 18.0 1.0 0.75
+mass                1 1.0
+mass                2 1.0
+
+################弛豫###############
+
+########################################################################
+#### atom.lammpstrj
+########################################################################
+# compute             1 free property/atom xs
+# compute             2 all temp
+# thermo              100
+# #thermo_modify       temp mythermo
+# thermo_modify       flush yes
+# comm_modify 	    vel yes
+
+# velocity        free create 1.0 38497 loop local dist gaussian
+# velocity        wall_fix set 0.0 0.0 0.0 units box
+
+
+# fix                 1     free mvv/dpd
+# fix                 2     wall_fix setforce 0.0 0.0 0.0
+
+
+# dump        mydump  all atom 100 atom.lammpstrj
+
+
+# timestep            0.01
+
+# velocity free set 0.0 -0.01 0.0 sum yes units box
+# fix 1 free gravity 0.000845 vector 0 -1 0 #重力的影响可考虑也可不考虑，取决于液滴的大小
+
+# run                 1000 #10000
+
+########################################################################
+#### relax.lammpstrj
+########################################################################
+compute             mythermo all temp
+thermo              100
+# thermo_style custom step temp
+# thermo_modify       temp mythermo
+thermo_modify       flush yes
+comm_modify 		vel yes
+
+velocity            free create 1.0 38497 loop local dist gaussian
+velocity	      	wall_fix set 0.0 0.0 0.0 units box
+
+
+fix         mvv     all mvv/dpd
+fix         force0	wall_fix setforce 0.0 0.0 0.0
+
+
+dump        relax  all atom 100 relax.lammpstrj
+
+
+
+timestep            0.01
+
+## 重力
+velocity free set 0.0 -0.01 0.0 sum yes units box
+fix 1 free gravity 0.000845 vector 0 -1 0 #重力的影响可考虑也可不考虑，取决于液滴的大小
+
+run                 50000 #50000
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Your simulation uses code contributions which should be cited:
+
+- pair mdpd command:
+
+@Article{ZLi2013_POF,
+ author = {Li, Z. and Hu, G.H. and Wang, Z.L. and Ma Y.B. and Zhou, Z.W.},
+ title = {Three dimensional flow structures in a moving droplet on substrate: a dissipative particle dynamics study},
+ journal = {Physics of Fluids},
+ year = {2013},
+ volume = {25},
+ pages = {072103}
+}
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Generated 0 of 1 mixed pair_coeff terms from geometric mixing rule
+Neighbor list info ...
+  update every 2 steps, delay 10 steps, check yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 1.3
+  ghost atom cutoff = 1.3
+  binsize = 0.65, bins = 924 108 100
+  2 neighbor lists, perpetual/occasional/extra = 2 0 0
+  (1) pair mdpd/rhosum, perpetual
+      attributes: full, newton on
+      pair build: full/bin/atomonly
+      stencil: full/bin/3d
+      bin: standard
+  (2) pair mdpd, perpetual, half/full from (1)
+      attributes: half, newton on
+      pair build: halffull/newton
+      stencil: none
+      bin: none
+Per MPI rank memory allocation (min/avg/max) = 708.1 | 708.1 | 708.1 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+         0   0.16628818    -8.9952651      0             -8.7458331     -6.0592351    
