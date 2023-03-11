@@ -1,8 +1,10 @@
 # Droplet_Lammps
 
-> 由 "shake_v2_move-delx_rough_45Hz_3.5.0.1" 上 fork 過來
+    由 "shake_v2_move-delx_rough_45Hz_3.5.0.1" 上 fork 過來
 
 ## Log
+
+[Notion: "Log-in.droplet"](https://ntu-cae-david.notion.site/ded56520bba6490fba67bb9b528e3eab?v=24ac3e2495304320955dda35f3c2efa1)
 
 **2023/3/10**
 - 修改表面粗糙度：2D sin函數
