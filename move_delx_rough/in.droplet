@@ -100,14 +100,9 @@ pair_style          hybrid/overlay mdpd/rhosum mdpd 1.0 1.0 9872598
 pair_coeff          1 1 mdpd/rhosum  0.75
 pair_coeff          1 2 mdpd/rhosum  0.75
 pair_coeff          2 2 mdpd/rhosum  0.75
-
-# pair_coeff i j mdpd a b r_cut gamma sigma
-# 其中，i和j是粒子類型，a是保守力作用參數，b是耗散力作用參數，r_cut是截斷半徑，gamma是隨機力作用參數，sigma是隨機力強度參數1。
-# 這些參數影響了液滴的形成、表面張力、接觸角等物理性質。一般來說，a越小，液滴越容易聚集；b越大，黏滯度越大；gamma和sigma越大，溫度越高1。
-
-pair_coeff          1 1 mdpd         -40 27.5 18 1.0 0.75 # 參考 2012 paper中 Coefficient for dissipative force參數
-pair_coeff          1 2 mdpd         -30 25 18.0 1.0 0.75 
-pair_coeff          2 2 mdpd         -40 25 18.0 1.0 0.75 
+pair_coeff          1 1 mdpd         -40 25 6.0 1.0 0.75 # 參考 Kaixuan Zhang, 2019
+pair_coeff          1 2 mdpd         -30 25 6.0 1.0 0.75 # |A|/B -> contact angle 接近 90
+pair_coeff          2 2 mdpd         -40 25 6.0 1.0 0.75  
 mass                1 1.0
 mass                2 1.0
 
